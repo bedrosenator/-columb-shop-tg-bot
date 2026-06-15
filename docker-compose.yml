@@ -26,6 +26,8 @@ services:
     restart: unless-stopped
     ports:
       - "${APP_PORT_HOST:-3000}:3000"
+    env_file:
+      - .env
     environment:
       PORT: 3000
       DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/${DB_NAME:-columb_shop_db}?schema=public

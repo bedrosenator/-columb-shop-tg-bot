@@ -1,0 +1,11 @@
+{
+    "instruction": "When working with a database, always use the latest Prisma ORM specification.",
+    "tech_stack": [
+        "TypeScript",
+        "Prisma ORM (Latest Version)"
+    ],
+    "docs": [
+        "https://www.prisma.io/docs/orm/reference/prisma-client-reference",
+        "https://www.prisma.io/docs/orm/overview/introduction"
+    ]
+}
