@@ -6,31 +6,34 @@ RUN corepack enable
 
 WORKDIR /usr/src/app
 
-# Stage 1: Install dependencies
+# Stage 1: Install dependencies (including toolchain for compiling native better-sqlite3 C++ addon)
 FROM base AS dependencies
-COPY package.json pnpm-lock.yaml ./
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile --ignore-scripts
+RUN apk add --no-cache make gcc g++ python3
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 
 # Stage 2: Build the NestJS application
 FROM base AS build
-COPY package.json pnpm-lock.yaml ./
+RUN apk add --no-cache make gcc g++ python3
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY --from=dependencies /usr/src/app/node_modules ./node_modules
 COPY . .
+RUN npx prisma generate
 RUN pnpm build
-# Re-install only production dependencies to keep the image slim
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --prod --frozen-lockfile --ignore-scripts
+# Re-install only production dependencies
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --prod --frozen-lockfile
 
 # Stage 3: Production runtime environment
 FROM base AS production
 COPY --from=build /usr/src/app/package.json ./package.json
 COPY --from=build /usr/src/app/node_modules ./node_modules
 COPY --from=build /usr/src/app/dist ./dist
+COPY --from=build /usr/src/app/prisma ./prisma
+COPY --from=build /usr/src/app/generated ./generated
+COPY --from=build /usr/src/app/prisma.config.ts ./prisma.config.ts
 
-# Expose default application port
 EXPOSE 3000
-
-# Set environment variable for execution mode
 ENV NODE_ENV=production
 
-# Run the app
-CMD [ "node", "dist/main" ]
+# Run migrations and start the application
+CMD [ "sh", "-c", "npx prisma migrate deploy && node dist/main" ]
