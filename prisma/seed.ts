@@ -11,10 +11,10 @@ async function main() {
   const defaultShops = [
     'Свобода',
     'Чудо',
-    'Университетская',
+    'Универ',
     'Изюм',
-    'Никольский',
-    'Французский',
+    'Николь',
+    'Франц',
   ];
 
   console.log('🌱 Starting database seeding...');
