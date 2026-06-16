@@ -35,5 +35,5 @@ COPY --from=build /usr/src/app/prisma.config.ts ./prisma.config.ts
 EXPOSE 3000
 ENV NODE_ENV=production
 
-# Run migrations and start the application
-CMD [ "sh", "-c", "npx prisma migrate deploy && node dist/main" ]
+# Run migrations, seed the database, and start the application
+CMD [ "sh", "-c", "npx prisma migrate deploy && npx prisma db seed && node dist/main" ]
