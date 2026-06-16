@@ -436,12 +436,23 @@ export class ReportWizard {
         lastName,
       });
 
-      await ctx.reply(
+      const successMsg = await ctx.reply(
         isUpdate
           ? '✅ Отчет успешно обновлен, сохранен в базу и переслан руководству!'
           : '✅ Отчет успешно принят, сохранен в базу и переслан руководству!',
         this.getMainMenuKeyboard(ctx),
       );
+
+      const chatId = ctx.chat?.id;
+      if (chatId) {
+        setTimeout(async () => {
+          try {
+            await ctx.telegram.deleteMessage(chatId, successMsg.message_id);
+          } catch {
+            void 0;
+          }
+        }, 10000); // Delete after 10 seconds
+      }
 
       await ctx.scene.leave();
     } catch (error) {
