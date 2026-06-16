@@ -6,6 +6,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { ExcelModule } from './excel/excel.module';
 import { BotUpdate } from './bot/bot.update';
 import { ReportWizard } from './bot/report.wizard';
+import { ReportService } from './bot/report.service';
 
 import { session } from 'telegraf';
 
@@ -20,6 +21,6 @@ import { session } from 'telegraf';
     }),
   ],
   controllers: [AppController],
-  providers: [AppService, BotUpdate, ReportWizard],
+  providers: [AppService, BotUpdate, ReportWizard, ReportService],
 })
 export class AppModule {}

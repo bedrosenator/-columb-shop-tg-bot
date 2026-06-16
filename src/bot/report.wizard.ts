@@ -1,6 +1,6 @@
 import { Wizard, WizardStep, Ctx } from 'nestjs-telegraf';
 import { Scenes, Markup } from 'telegraf';
-import { PrismaService } from '../prisma/prisma.service';
+import { ReportService } from './report.service';
 
 // Custom interface for wizard state to store report progress
 interface ReportState {
@@ -16,7 +16,7 @@ interface ReportState {
 
 @Wizard('report-wizard')
 export class ReportWizard {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly reportService: ReportService) {}
 
   // Helper to register message for deletion
   private addMessageToDelete(ctx: Scenes.WizardContext, messageId?: number) {
@@ -43,6 +43,14 @@ export class ReportWizard {
       }
       state.messagesToDelete = [];
     }
+  }
+
+  // Helper to register message deletion and check if user cancelled the wizard
+  private async prepareStep(ctx: Scenes.WizardContext): Promise<boolean> {
+    if (ctx.message) {
+      this.addMessageToDelete(ctx, ctx.message.message_id);
+    }
+    return this.checkCancel(ctx);
   }
 
   // Helper method to generate main menu keyboard based on user role
@@ -103,9 +111,7 @@ export class ReportWizard {
         state.messagesToDelete.push(ctx.message.message_id);
       }
 
-      const shops = await this.prisma.shop.findMany({
-        orderBy: { name: 'asc' },
-      });
+      const shops = await this.reportService.getShops();
 
       const shopButtons = shops.map((s) => s.name);
 
@@ -138,11 +144,7 @@ export class ReportWizard {
   async step2(
     @Ctx() ctx: Scenes.WizardContext & { message: { text: string } },
   ) {
-    if (ctx.message) {
-      this.addMessageToDelete(ctx, ctx.message.message_id);
-    }
-
-    if (await this.checkCancel(ctx)) return;
+    if (await this.prepareStep(ctx)) return;
 
     if (!ctx.message || !('text' in ctx.message)) {
       const msg = await ctx.reply(
@@ -179,11 +181,7 @@ export class ReportWizard {
   async step3(
     @Ctx() ctx: Scenes.WizardContext & { message: { text: string } },
   ) {
-    if (ctx.message) {
-      this.addMessageToDelete(ctx, ctx.message.message_id);
-    }
-
-    if (await this.checkCancel(ctx)) return;
+    if (await this.prepareStep(ctx)) return;
 
     if (!ctx.message || !('text' in ctx.message)) {
       const msg = await ctx.reply(
@@ -219,11 +217,7 @@ export class ReportWizard {
   async step4(
     @Ctx() ctx: Scenes.WizardContext & { message: { text: string } },
   ) {
-    if (ctx.message) {
-      this.addMessageToDelete(ctx, ctx.message.message_id);
-    }
-
-    if (await this.checkCancel(ctx)) return;
+    if (await this.prepareStep(ctx)) return;
 
     if (!ctx.message || !('text' in ctx.message)) {
       const msg = await ctx.reply(
@@ -259,11 +253,7 @@ export class ReportWizard {
   async step5(
     @Ctx() ctx: Scenes.WizardContext & { message: { text: string } },
   ) {
-    if (ctx.message) {
-      this.addMessageToDelete(ctx, ctx.message.message_id);
-    }
-
-    if (await this.checkCancel(ctx)) return;
+    if (await this.prepareStep(ctx)) return;
 
     if (!ctx.message || !('text' in ctx.message)) {
       const msg = await ctx.reply(
@@ -299,11 +289,7 @@ export class ReportWizard {
   async step6(
     @Ctx() ctx: Scenes.WizardContext & { message: { text: string } },
   ) {
-    if (ctx.message) {
-      this.addMessageToDelete(ctx, ctx.message.message_id);
-    }
-
-    if (await this.checkCancel(ctx)) return;
+    if (await this.prepareStep(ctx)) return;
 
     if (!ctx.message || !('text' in ctx.message)) {
       const msg = await ctx.reply(
@@ -339,11 +325,7 @@ export class ReportWizard {
   async step7(
     @Ctx() ctx: Scenes.WizardContext & { message: { text: string } },
   ) {
-    if (ctx.message) {
-      this.addMessageToDelete(ctx, ctx.message.message_id);
-    }
-
-    if (await this.checkCancel(ctx)) return;
+    if (await this.prepareStep(ctx)) return;
 
     if (!ctx.message || !('text' in ctx.message)) {
       const msg = await ctx.reply('⚠️ Пожалуйста, введите число (зарплата):');
@@ -383,11 +365,7 @@ export class ReportWizard {
       };
     },
   ) {
-    if (ctx.message) {
-      this.addMessageToDelete(ctx, ctx.message.message_id);
-    }
-
-    if (await this.checkCancel(ctx)) return;
+    if (await this.prepareStep(ctx)) return;
 
     const state = ctx.wizard.state as ReportState;
     const message = ctx.message;
@@ -405,21 +383,38 @@ export class ReportWizard {
       return;
     }
 
+    const {
+      shopName,
+      cashbox,
+      terminalTurnover,
+      morningCash,
+      expenses,
+      salary,
+      photoFileId,
+    } = state;
+
+    if (
+      !shopName ||
+      cashbox === undefined ||
+      terminalTurnover === undefined ||
+      morningCash === undefined ||
+      expenses === undefined ||
+      salary === undefined ||
+      !photoFileId
+    ) {
+      await ctx.reply(
+        '❌ Ошибка: Данные отчета неполные или сессия устарела. Начните заново.',
+        this.getMainMenuKeyboard(ctx),
+      );
+      await ctx.scene.leave();
+      return;
+    }
+
     const savingMsg = await ctx.reply(
       '💾 Сохраняю отчет и отправляю данные...',
     );
 
     try {
-      const {
-        shopName,
-        cashbox,
-        terminalTurnover,
-        morningCash,
-        expenses,
-        salary,
-        photoFileId,
-      } = state;
-
       const telegramId = ctx.from?.id;
       const username = ctx.from?.username || 'no_username';
       const firstName = ctx.from?.first_name || 'Без имени';
@@ -427,108 +422,19 @@ export class ReportWizard {
 
       if (!telegramId) return;
 
-      // 1. Find or create Seller
-      const seller = await this.prisma.seller.upsert({
-        where: { telegramId: BigInt(telegramId) },
-        update: { username, firstName, lastName },
-        create: {
-          telegramId: BigInt(telegramId),
-          username,
-          firstName,
-          lastName,
-        },
+      const isUpdate = await this.reportService.saveAndForwardReport(ctx, {
+        shopName,
+        cashbox,
+        terminalTurnover,
+        morningCash,
+        expenses,
+        salary,
+        photoFileId,
+        telegramId,
+        username,
+        firstName,
+        lastName,
       });
-
-      // 2. Find or create Shop
-      let shop = await this.prisma.shop.findFirst({
-        where: { name: { equals: shopName } },
-      });
-
-      if (!shop) {
-        shop = await this.prisma.shop.create({
-          data: { name: shopName! },
-        });
-      }
-
-      // 3. Create or update Expenses record
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
-
-      const todayEnd = new Date();
-      todayEnd.setHours(23, 59, 59, 999);
-
-      const existingReport = await this.prisma.shopExpenses.findFirst({
-        where: {
-          shopId: shop.id,
-          reportDate: {
-            gte: todayStart,
-            lte: todayEnd,
-          },
-        },
-      });
-
-      let isUpdate = false;
-      if (existingReport) {
-        isUpdate = true;
-        await this.prisma.shopExpenses.update({
-          where: { id: existingReport.id },
-          data: {
-            cashbox: cashbox!,
-            terminalTurnover: terminalTurnover!,
-            morningCash: morningCash!,
-            expenses: expenses!,
-            salary: salary!,
-            sellerId: seller.id,
-            reportDate: new Date(),
-          },
-        });
-      } else {
-        await this.prisma.shopExpenses.create({
-          data: {
-            cashbox: cashbox!,
-            terminalTurnover: terminalTurnover!,
-            morningCash: morningCash!,
-            expenses: expenses!,
-            salary: salary!,
-            sellerId: seller.id,
-            shopId: shop.id,
-            reportDate: new Date(),
-          },
-        });
-      }
-
-      // 4. Send report summary to the group
-      const groupId = process.env.TG_GROUP_ID;
-      if (groupId) {
-        const title = isUpdate
-          ? `🔄 **Обновленный отчет о расходах**`
-          : `📊 **Новый отчет о расходах**`;
-
-        const forwardText =
-          `${title}\n\n` +
-          `🏪 **Магазин**: \`${shopName}\`\n` +
-          `👤 **Продавец**: ${firstName} ${lastName} (@${username})\n\n` +
-          `💵 **Касса (наличные)**: ${cashbox!.toLocaleString('ru-RU')} грн.\n` +
-          `💳 **Терминал (безнал)**: ${terminalTurnover!.toLocaleString('ru-RU')} грн.\n` +
-          `🌅 **Утренний баланс**: ${morningCash!.toLocaleString('ru-RU')} грн.\n` +
-          `📉 **Расходы**: ${expenses!.toLocaleString('ru-RU')} грн.\n` +
-          `💰 **Зарплата**: ${salary!.toLocaleString('ru-RU')} грн.\n\n` +
-          `📅 **Дата**: ${new Date().toLocaleDateString('ru-RU')}`;
-
-        if (photoFileId) {
-          await ctx.telegram.sendPhoto(groupId, photoFileId, {
-            caption: forwardText,
-            parse_mode: 'Markdown',
-          });
-        } else {
-          await ctx.telegram.sendMessage(groupId, forwardText, {
-            parse_mode: 'Markdown',
-          });
-        }
-      }
-
-      // Clean up wizard chat messages on success
-      await this.deleteWizardMessages(ctx);
 
       await ctx.reply(
         isUpdate
@@ -547,6 +453,9 @@ export class ReportWizard {
       );
       await ctx.scene.leave();
     } finally {
+      // Clean up wizard chat messages
+      await this.deleteWizardMessages(ctx);
+
       // Delete the "💾 Сохраняю отчет..." message
       try {
         await ctx.telegram.deleteMessage(ctx.chat!.id, savingMsg.message_id);
