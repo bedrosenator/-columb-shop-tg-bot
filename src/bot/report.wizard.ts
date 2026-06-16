@@ -10,6 +10,7 @@ interface ReportState {
   morningCash?: number;
   expenses?: number;
   salary?: number;
+  photoFileId?: string;
 }
 
 @Wizard('report-wizard')
@@ -77,7 +78,7 @@ export class ReportWizard {
       keyboardRows.push(['❌ Отмена']);
 
       await ctx.reply(
-        '🏪 **Шаг 1/6**: Выберите магазин из списка или напишите название нового магазина:',
+        '🏪 **Шаг 1/7**: Выберите магазин из списка или напишите название нового магазина:',
         Markup.keyboard(keyboardRows).resize(),
       );
 
@@ -118,7 +119,7 @@ export class ReportWizard {
     state.shopName = shopName;
 
     await ctx.reply(
-      '💵 **Шаг 2/6**: Введите сумму в кассе (наличные) в грн:',
+      '💵 **Шаг 2/7**: Введите сумму в кассе (наличные) в грн:',
       Markup.keyboard([['❌ Отмена']]).resize(),
     );
 
@@ -149,7 +150,7 @@ export class ReportWizard {
     state.cashbox = value;
 
     await ctx.reply(
-      '💳 **Шаг 3/6**: Введите безналичный оборот по терминалу в грн:',
+      '💳 **Шаг 3/7**: Введите безналичный оборот по терминалу в грн:',
       Markup.keyboard([['❌ Отмена']]).resize(),
     );
 
@@ -180,7 +181,7 @@ export class ReportWizard {
     state.terminalTurnover = value;
 
     await ctx.reply(
-      '🌅 **Шаг 4/6**: Введите сумму утреннего баланса кассы в грн:',
+      '🌅 **Шаг 4/7**: Введите сумму утреннего баланса кассы в грн:',
       Markup.keyboard([['❌ Отмена']]).resize(),
     );
 
@@ -211,7 +212,7 @@ export class ReportWizard {
     state.morningCash = value;
 
     await ctx.reply(
-      '📉 **Шаг 5/6**: Введите сумму расходов за день в грн:',
+      '📉 **Шаг 5/7**: Введите сумму расходов за день в грн:',
       Markup.keyboard([['❌ Отмена']]).resize(),
     );
 
@@ -242,14 +243,14 @@ export class ReportWizard {
     state.expenses = value;
 
     await ctx.reply(
-      '💰 **Шаг 6/6**: Введите выплаченную зарплату в грн:',
+      '💰 **Шаг 6/7**: Введите выплаченную зарплату в грн:',
       Markup.keyboard([['❌ Отмена']]).resize(),
     );
 
     ctx.wizard.next();
   }
 
-  // STEP 7: Read Salary and Finalize Report
+  // STEP 7: Read Salary and ask for Photo
   @WizardStep(7)
   async step7(
     @Ctx() ctx: Scenes.WizardContext & { message: { text: string } },
@@ -272,11 +273,59 @@ export class ReportWizard {
     const state = ctx.wizard.state as ReportState;
     state.salary = salary;
 
+    await ctx.reply(
+      '📷 **Шаг 7/7**: Отправьте фотографию отчета (или нажмите «Пропустить»):',
+      Markup.keyboard([['Пропустить'], ['❌ Отмена']]).resize(),
+    );
+
+    ctx.wizard.next();
+  }
+
+  // STEP 8: Read Photo (or Skip) and Finalize Report
+  @WizardStep(8)
+  async step8(
+    @Ctx()
+    ctx: Scenes.WizardContext & {
+      message: {
+        text?: string;
+        photo?: Array<{ file_id: string }>;
+      };
+    },
+  ) {
+    if (await this.checkCancel(ctx)) return;
+
+    const state = ctx.wizard.state as ReportState;
+    const message = ctx.message;
+
+    let isSkipped = false;
+    if (message && message.text === 'Пропустить') {
+      isSkipped = true;
+    }
+
+    if (!isSkipped && message && message.photo && message.photo.length > 0) {
+      // Get the largest photo size
+      const photo = message.photo[message.photo.length - 1];
+      state.photoFileId = photo.file_id;
+    } else {
+      await ctx.reply(
+        '⚠️ Пожалуйста, отправьте фотографию или нажмите кнопку «Пропустить»:',
+        Markup.keyboard([['Пропустить'], ['❌ Отмена']]).resize(),
+      );
+      return;
+    }
+
     await ctx.reply('💾 Сохраняю отчет и отправляю данные...');
 
     try {
-      const { shopName, cashbox, terminalTurnover, morningCash, expenses } =
-        state;
+      const {
+        shopName,
+        cashbox,
+        terminalTurnover,
+        morningCash,
+        expenses,
+        salary,
+        photoFileId,
+      } = state;
 
       const telegramId = ctx.from?.id;
       const username = ctx.from?.username || 'no_username';
@@ -308,41 +357,87 @@ export class ReportWizard {
         });
       }
 
-      // 3. Create Expenses record
-      await this.prisma.shopExpenses.create({
-        data: {
-          cashbox: cashbox!,
-          terminalTurnover: terminalTurnover!,
-          morningCash: morningCash!,
-          expenses: expenses!,
-          salary: salary,
-          sellerId: seller.id,
+      // 3. Create or update Expenses record
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+
+      const todayEnd = new Date();
+      todayEnd.setHours(23, 59, 59, 999);
+
+      const existingReport = await this.prisma.shopExpenses.findFirst({
+        where: {
           shopId: shop.id,
-          reportDate: new Date(),
+          reportDate: {
+            gte: todayStart,
+            lte: todayEnd,
+          },
         },
       });
+
+      let isUpdate = false;
+      if (existingReport) {
+        isUpdate = true;
+        await this.prisma.shopExpenses.update({
+          where: { id: existingReport.id },
+          data: {
+            cashbox: cashbox!,
+            terminalTurnover: terminalTurnover!,
+            morningCash: morningCash!,
+            expenses: expenses!,
+            salary: salary!,
+            sellerId: seller.id,
+            reportDate: new Date(),
+          },
+        });
+      } else {
+        await this.prisma.shopExpenses.create({
+          data: {
+            cashbox: cashbox!,
+            terminalTurnover: terminalTurnover!,
+            morningCash: morningCash!,
+            expenses: expenses!,
+            salary: salary!,
+            sellerId: seller.id,
+            shopId: shop.id,
+            reportDate: new Date(),
+          },
+        });
+      }
 
       // 4. Send report summary to the group
       const groupId = process.env.TG_GROUP_ID;
       if (groupId) {
+        const title = isUpdate
+          ? `🔄 **Обновленный отчет о расходах**`
+          : `📊 **Новый отчет о расходах**`;
+
         const forwardText =
-          `📊 **Новый отчет о расходах**\n\n` +
+          `${title}\n\n` +
           `🏪 **Магазин**: \`${shopName}\`\n` +
           `👤 **Продавец**: ${firstName} ${lastName} (@${username})\n\n` +
           `💵 **Касса (наличные)**: ${cashbox!.toLocaleString('ru-RU')} грн.\n` +
           `💳 **Терминал (безнал)**: ${terminalTurnover!.toLocaleString('ru-RU')} грн.\n` +
           `🌅 **Утренний баланс**: ${morningCash!.toLocaleString('ru-RU')} грн.\n` +
           `📉 **Расходы**: ${expenses!.toLocaleString('ru-RU')} грн.\n` +
-          `💰 **Зарплата**: ${salary.toLocaleString('ru-RU')} грн.\n\n` +
+          `💰 **Зарплата**: ${salary!.toLocaleString('ru-RU')} грн.\n\n` +
           `📅 **Дата**: ${new Date().toLocaleDateString('ru-RU')}`;
 
-        await ctx.telegram.sendMessage(groupId, forwardText, {
-          parse_mode: 'Markdown',
-        });
+        if (photoFileId) {
+          await ctx.telegram.sendPhoto(groupId, photoFileId, {
+            caption: forwardText,
+            parse_mode: 'Markdown',
+          });
+        } else {
+          await ctx.telegram.sendMessage(groupId, forwardText, {
+            parse_mode: 'Markdown',
+          });
+        }
       }
 
       await ctx.reply(
-        '✅ Отчет успешно принят, сохранен в базу и переслан руководству!',
+        isUpdate
+          ? '✅ Отчет успешно обновлен, сохранен в базу и переслан руководству!'
+          : '✅ Отчет успешно принят, сохранен в базу и переслан руководству!',
         this.getMainMenuKeyboard(ctx),
       );
 
