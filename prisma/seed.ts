@@ -8,14 +8,7 @@ async function main() {
   });
   const prisma = new PrismaClient({ adapter });
 
-  const defaultShops = [
-    'Свобода',
-    'Чудо',
-    'Универ',
-    'Изюм',
-    'Николь',
-    'Франц',
-  ];
+  const defaultShops = ['Свобода', 'Чудо', 'Универ', 'Изюм', 'Николь', 'Франц'];
 
   console.log('🌱 Starting database seeding...');
 
