@@ -32,6 +32,9 @@ importers:
       nestjs-telegraf:
         specifier: ^2.9.1
         version: 2.9.1(@nestjs/common@11.1.26(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.26)(reflect-metadata@0.2.2)(telegraf@4.16.3)(typescript@5.9.3)
+      prisma:
+        specifier: ^7.8.0
+        version: 7.8.0(@types/react@19.2.17)(better-sqlite3@12.10.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@5.9.3)
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2
@@ -41,6 +44,9 @@ importers:
       telegraf:
         specifier: ^4.16.3
         version: 4.16.3
+      tsx:
+        specifier: ^4.22.4
+        version: 4.22.4
     devDependencies:
       '@eslint/eslintrc':
         specifier: ^3.2.0
@@ -90,9 +96,6 @@ importers:
       prettier:
         specifier: ^3.4.2
         version: 3.8.4
-      prisma:
-        specifier: ^7.8.0
-        version: 7.8.0(@types/react@19.2.17)(better-sqlite3@12.10.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@5.9.3)
       source-map-support:
         specifier: ^0.5.21
         version: 0.5.21
@@ -111,9 +114,6 @@ importers:
       tsconfig-paths:
         specifier: ^4.2.0
         version: 4.2.0
-      tsx:
-        specifier: ^4.22.4
-        version: 4.22.4
       typescript:
         specifier: ^5.7.3
         version: 5.9.3
