@@ -124,7 +124,7 @@ pnpm run start:dev
    ```
 3. Запустите приложение:
    ```bash
-   pm2 start dist/main.js --name "columb-shop-bot"
+   pm2 start dist/src/main.js --name "columb-shop-bot"
    ```
 4. Для сохранения процессов при перезапуске системы выполните:
    ```bash
