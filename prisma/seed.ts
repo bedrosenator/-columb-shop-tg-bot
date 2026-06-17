@@ -13,8 +13,8 @@ async function main() {
     'Чудо',
     'Универ',
     'Изюм',
-    'Николь',
-    'Франц',
+    'Никольский',
+    'Французский',
   ];
 
   console.log('🌱 Starting database seeding...');
