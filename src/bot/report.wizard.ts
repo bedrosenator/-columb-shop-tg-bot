@@ -75,12 +75,23 @@ export class ReportWizard {
   private async checkCancel(ctx: Scenes.WizardContext): Promise<boolean> {
     if (ctx.message && 'text' in ctx.message && ctx.message.text === this.keyboardService.BUTTONS.CANCEL) {
       this.addMessageToDelete(ctx, ctx.message.message_id);
-      await this.deleteWizardMessages(ctx);
 
-      await ctx.reply('❌ Заполнение отчета отменено.', this.getMainMenuKeyboard(ctx));
+      const cancelMessage = await ctx.reply('❌ Заполнение отчета отменено.', this.getMainMenuKeyboard(ctx));
+      await this.deleteWizardMessages(ctx);
       await ctx.scene.leave();
+
+      const chatId = ctx.chat?.id;
+      if (chatId) {
+        setTimeout(() => {
+          ctx.telegram
+            .deleteMessage(chatId, cancelMessage.message_id)
+            .catch((e) => console.error(e, 'Error deleting cancel message'));
+        }, 10000); // Удаляем через 5 секунд
+      }
+
       return true;
     }
+
     return false;
   }
 
@@ -99,14 +110,8 @@ export class ReportWizard {
   @WizardStep(1)
   async step1(@Ctx() ctx: Scenes.WizardContext) {
     try {
-      // Initialize state.messagesToDelete
-      const state = ctx.wizard.state as ReportState;
-      state.messagesToDelete = [];
-
       // Add user's trigger message ("📝 Отправить отчет") if available
-      if (ctx.message) {
-        state.messagesToDelete.push(ctx.message.message_id);
-      }
+      this.addMessageToDelete(ctx, ctx?.message?.message_id);
 
       const shops = await this.reportService.getShops();
       const shopNames = shops.map((s) => s.name);
@@ -115,7 +120,7 @@ export class ReportWizard {
         '🏪 **Шаг 1/7**: Выберите магазин из списка или напишите название нового магазина:',
         this.keyboardService.getShopSelectionKeyboard(shopNames),
       );
-      state.messagesToDelete.push(msg.message_id);
+      this.addMessageToDelete(ctx, msg.message_id);
 
       ctx.wizard.next();
     } catch (error) {
