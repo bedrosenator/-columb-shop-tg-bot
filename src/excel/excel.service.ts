@@ -9,9 +9,7 @@ export type ExpenseWithRelation = ShopExpenses & {
 
 @Injectable()
 export class ExcelService {
-  async generateExpensesReport(
-    expenses: ExpenseWithRelation[],
-  ): Promise<Buffer> {
+  async generateExpensesReport(expenses: ExpenseWithRelation[]): Promise<Buffer> {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Расходы магазинов');
 
@@ -47,9 +45,7 @@ export class ExcelService {
 
     // Заполняем данными
     expenses.forEach((item) => {
-      const formattedDate = item.reportDate
-        ? new Date(item.reportDate).toLocaleDateString('ru-RU')
-        : '';
+      const formattedDate = item.reportDate ? new Date(item.reportDate).toLocaleDateString('ru-RU') : '';
       const sellerName = item.seller
         ? `${item.seller.firstName} ${item.seller.lastName || ''} (@${item.seller.username})`
         : 'Неизвестно';

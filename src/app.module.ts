@@ -7,6 +7,7 @@ import { ExcelModule } from './excel/excel.module';
 import { BotUpdate } from './bot/bot.update';
 import { ReportWizard } from './bot/report.wizard';
 import { ReportService } from './bot/report.service';
+import { KeyboardService } from './bot/keyboard.service';
 
 import { session } from 'telegraf';
 
@@ -21,6 +22,6 @@ import { session } from 'telegraf';
     }),
   ],
   controllers: [AppController],
-  providers: [AppService, BotUpdate, ReportWizard, ReportService],
+  providers: [AppService, BotUpdate, ReportWizard, ReportService, KeyboardService],
 })
 export class AppModule {}

@@ -1,6 +1,7 @@
 import { Wizard, WizardStep, Ctx } from 'nestjs-telegraf';
-import { Scenes, Markup } from 'telegraf';
+import { Scenes } from 'telegraf';
 import { ReportService } from './report.service';
+import { KeyboardService } from './keyboard.service';
 
 // Custom interface for wizard state to store report progress
 interface ReportState {
@@ -16,33 +17,42 @@ interface ReportState {
 
 @Wizard('report-wizard')
 export class ReportWizard {
-  constructor(private readonly reportService: ReportService) {}
+  constructor(
+    private readonly reportService: ReportService,
+    private readonly keyboardService: KeyboardService,
+  ) {}
 
   // Helper to register message for deletion
   private addMessageToDelete(ctx: Scenes.WizardContext, messageId?: number) {
     if (!messageId) return;
+
     const state = ctx.wizard.state as ReportState;
+
     if (!state.messagesToDelete) {
       state.messagesToDelete = [];
     }
+
     state.messagesToDelete.push(messageId);
   }
 
   // Helper to delete all collected messages
   private async deleteWizardMessages(ctx: Scenes.WizardContext) {
     const state = ctx.wizard.state as ReportState;
-    if (state.messagesToDelete && state.messagesToDelete.length > 0) {
-      const chatId = ctx.chat?.id;
-      if (!chatId) return;
-      for (const messageId of state.messagesToDelete) {
-        try {
-          await ctx.telegram.deleteMessage(chatId, messageId);
-        } catch {
-          void 0;
-        }
-      }
-      state.messagesToDelete = [];
+    const chatId = ctx.chat?.id;
+
+    if (!state.messagesToDelete || !state.messagesToDelete.length || !chatId) {
+      return;
     }
+
+    for (const messageId of state.messagesToDelete) {
+      try {
+        await ctx.telegram.deleteMessage(chatId, messageId);
+      } catch (e) {
+        console.error('Error deleting message:', e);
+      }
+    }
+
+    state.messagesToDelete = [];
   }
 
   // Helper to register message deletion and check if user cancelled the wizard
@@ -58,29 +68,16 @@ export class ReportWizard {
     const adminId = process.env.TG_ADMIN_ID;
     const isAdmin = adminId && ctx.from?.id.toString() === adminId.toString();
 
-    if (isAdmin) {
-      return Markup.keyboard([
-        ['📝 Отправить новый отчет', '📊 Экспорт в Excel'],
-      ]).resize();
-    } else {
-      return Markup.keyboard([['📝 Отправить новый отчет']]).resize();
-    }
+    return this.keyboardService.getMainMenuKeyboard(!!isAdmin);
   }
 
   // Helper method to check if the user clicked cancel
   private async checkCancel(ctx: Scenes.WizardContext): Promise<boolean> {
-    if (
-      ctx.message &&
-      'text' in ctx.message &&
-      ctx.message.text === '❌ Отмена'
-    ) {
+    if (ctx.message && 'text' in ctx.message && ctx.message.text === this.keyboardService.BUTTONS.CANCEL) {
       this.addMessageToDelete(ctx, ctx.message.message_id);
       await this.deleteWizardMessages(ctx);
 
-      await ctx.reply(
-        '❌ Заполнение отчета отменено.',
-        this.getMainMenuKeyboard(ctx),
-      );
+      await ctx.reply('❌ Заполнение отчета отменено.', this.getMainMenuKeyboard(ctx));
       await ctx.scene.leave();
       return true;
     }
@@ -106,59 +103,42 @@ export class ReportWizard {
       const state = ctx.wizard.state as ReportState;
       state.messagesToDelete = [];
 
-      // Add user's trigger message ("📝 Отправить новый отчет") if available
+      // Add user's trigger message ("📝 Отправить отчет") if available
       if (ctx.message) {
         state.messagesToDelete.push(ctx.message.message_id);
       }
 
       const shops = await this.reportService.getShops();
-
-      const shopButtons = shops.map((s) => s.name);
-
-      // Build keyboard: list of shops + Cancel button
-      const keyboardRows: string[][] = [];
-      // Group shops by 2 per row
-      for (let i = 0; i < shopButtons.length; i += 2) {
-        keyboardRows.push(shopButtons.slice(i, i + 2));
-      }
-      keyboardRows.push(['❌ Отмена']);
+      const shopNames = shops.map((s) => s.name);
 
       const msg = await ctx.reply(
         '🏪 **Шаг 1/7**: Выберите магазин из списка или напишите название нового магазина:',
-        Markup.keyboard(keyboardRows).resize(),
+        this.keyboardService.getShopSelectionKeyboard(shopNames),
       );
       state.messagesToDelete.push(msg.message_id);
 
       ctx.wizard.next();
     } catch (error) {
       console.error('Error in step 1:', error);
-      await ctx.reply(
-        'Произошла ошибка. Попробуйте начать заново через команду /start.',
-      );
+      await ctx.reply('Произошла ошибка. Попробуйте начать заново через команду /start.');
       await ctx.scene.leave();
     }
   }
 
   // STEP 2: Read Shop Name and ask for Cashbox
   @WizardStep(2)
-  async step2(
-    @Ctx() ctx: Scenes.WizardContext & { message: { text: string } },
-  ) {
+  async step2(@Ctx() ctx: Scenes.WizardContext & { message: { text: string } }) {
     if (await this.prepareStep(ctx)) return;
 
     if (!ctx.message || !('text' in ctx.message)) {
-      const msg = await ctx.reply(
-        '⚠️ Пожалуйста, выберите магазин или введите текстовое название.',
-      );
+      const msg = await ctx.reply('⚠️ Пожалуйста, выберите магазин или введите текстовое название.');
       this.addMessageToDelete(ctx, msg.message_id);
       return;
     }
 
     const shopName = ctx.message.text.trim();
     if (!shopName) {
-      const msg = await ctx.reply(
-        '⚠️ Имя магазина не может быть пустым. Введите название:',
-      );
+      const msg = await ctx.reply('⚠️ Имя магазина не может быть пустым. Введите название:');
       this.addMessageToDelete(ctx, msg.message_id);
       return;
     }
@@ -169,7 +149,7 @@ export class ReportWizard {
 
     const msg = await ctx.reply(
       '💵 **Шаг 2/7**: Введите сумму в кассе (наличные) в грн:',
-      Markup.keyboard([['❌ Отмена']]).resize(),
+      this.keyboardService.getCancelKeyboard(),
     );
     this.addMessageToDelete(ctx, msg.message_id);
 
@@ -178,15 +158,11 @@ export class ReportWizard {
 
   // STEP 3: Read Cashbox and ask for Terminal Turnover
   @WizardStep(3)
-  async step3(
-    @Ctx() ctx: Scenes.WizardContext & { message: { text: string } },
-  ) {
+  async step3(@Ctx() ctx: Scenes.WizardContext & { message: { text: string } }) {
     if (await this.prepareStep(ctx)) return;
 
     if (!ctx.message || !('text' in ctx.message)) {
-      const msg = await ctx.reply(
-        '⚠️ Пожалуйста, введите число (сумму кассы):',
-      );
+      const msg = await ctx.reply('⚠️ Пожалуйста, введите число (сумму кассы):');
       this.addMessageToDelete(ctx, msg.message_id);
       return;
     }
@@ -205,7 +181,7 @@ export class ReportWizard {
 
     const msg = await ctx.reply(
       '💳 **Шаг 3/7**: Введите безналичный оборот по терминалу в грн:',
-      Markup.keyboard([['❌ Отмена']]).resize(),
+      this.keyboardService.getCancelKeyboard(),
     );
     this.addMessageToDelete(ctx, msg.message_id);
 
@@ -214,15 +190,11 @@ export class ReportWizard {
 
   // STEP 4: Read Terminal and ask for Morning Cash
   @WizardStep(4)
-  async step4(
-    @Ctx() ctx: Scenes.WizardContext & { message: { text: string } },
-  ) {
+  async step4(@Ctx() ctx: Scenes.WizardContext & { message: { text: string } }) {
     if (await this.prepareStep(ctx)) return;
 
     if (!ctx.message || !('text' in ctx.message)) {
-      const msg = await ctx.reply(
-        '⚠️ Пожалуйста, введите число (оборот по терминалу):',
-      );
+      const msg = await ctx.reply('⚠️ Пожалуйста, введите число (оборот по терминалу):');
       this.addMessageToDelete(ctx, msg.message_id);
       return;
     }
@@ -241,7 +213,7 @@ export class ReportWizard {
 
     const msg = await ctx.reply(
       '🌅 **Шаг 4/7**: Введите сумму утреннего баланса кассы в грн:',
-      Markup.keyboard([['❌ Отмена']]).resize(),
+      this.keyboardService.getCancelKeyboard(),
     );
     this.addMessageToDelete(ctx, msg.message_id);
 
@@ -250,15 +222,11 @@ export class ReportWizard {
 
   // STEP 5: Read Morning Cash and ask for Expenses
   @WizardStep(5)
-  async step5(
-    @Ctx() ctx: Scenes.WizardContext & { message: { text: string } },
-  ) {
+  async step5(@Ctx() ctx: Scenes.WizardContext & { message: { text: string } }) {
     if (await this.prepareStep(ctx)) return;
 
     if (!ctx.message || !('text' in ctx.message)) {
-      const msg = await ctx.reply(
-        '⚠️ Пожалуйста, введите число (утренний баланс):',
-      );
+      const msg = await ctx.reply('⚠️ Пожалуйста, введите число (утренний баланс):');
       this.addMessageToDelete(ctx, msg.message_id);
       return;
     }
@@ -277,7 +245,7 @@ export class ReportWizard {
 
     const msg = await ctx.reply(
       '📉 **Шаг 5/7**: Введите сумму расходов за день в грн:',
-      Markup.keyboard([['❌ Отмена']]).resize(),
+      this.keyboardService.getCancelKeyboard(),
     );
     this.addMessageToDelete(ctx, msg.message_id);
 
@@ -286,15 +254,11 @@ export class ReportWizard {
 
   // STEP 6: Read Expenses and ask for Salary
   @WizardStep(6)
-  async step6(
-    @Ctx() ctx: Scenes.WizardContext & { message: { text: string } },
-  ) {
+  async step6(@Ctx() ctx: Scenes.WizardContext & { message: { text: string } }) {
     if (await this.prepareStep(ctx)) return;
 
     if (!ctx.message || !('text' in ctx.message)) {
-      const msg = await ctx.reply(
-        '⚠️ Пожалуйста, введите число (расходы за день):',
-      );
+      const msg = await ctx.reply('⚠️ Пожалуйста, введите число (расходы за день):');
       this.addMessageToDelete(ctx, msg.message_id);
       return;
     }
@@ -313,7 +277,7 @@ export class ReportWizard {
 
     const msg = await ctx.reply(
       '💰 **Шаг 6/7**: Введите выплаченную зарплату в грн:',
-      Markup.keyboard([['❌ Отмена']]).resize(),
+      this.keyboardService.getCancelKeyboard(),
     );
     this.addMessageToDelete(ctx, msg.message_id);
 
@@ -322,9 +286,7 @@ export class ReportWizard {
 
   // STEP 7: Read Salary and ask for Photo
   @WizardStep(7)
-  async step7(
-    @Ctx() ctx: Scenes.WizardContext & { message: { text: string } },
-  ) {
+  async step7(@Ctx() ctx: Scenes.WizardContext & { message: { text: string } }) {
     if (await this.prepareStep(ctx)) return;
 
     if (!ctx.message || !('text' in ctx.message)) {
@@ -347,7 +309,7 @@ export class ReportWizard {
 
     const msg = await ctx.reply(
       '📷 **Шаг 7/7**: Отправьте фотографию отчета:',
-      Markup.keyboard([['❌ Отмена']]).resize(),
+      this.keyboardService.getCancelKeyboard(),
     );
     this.addMessageToDelete(ctx, msg.message_id);
 
@@ -377,21 +339,13 @@ export class ReportWizard {
     } else {
       const msg = await ctx.reply(
         '⚠️ Пожалуйста, отправьте фотографию отчета:',
-        Markup.keyboard([['❌ Отмена']]).resize(),
+        this.keyboardService.getCancelKeyboard(),
       );
       this.addMessageToDelete(ctx, msg.message_id);
       return;
     }
 
-    const {
-      shopName,
-      cashbox,
-      terminalTurnover,
-      morningCash,
-      expenses,
-      salary,
-      photoFileId,
-    } = state;
+    const { shopName, cashbox, terminalTurnover, morningCash, expenses, salary, photoFileId } = state;
 
     if (
       !shopName ||
@@ -410,9 +364,7 @@ export class ReportWizard {
       return;
     }
 
-    const savingMsg = await ctx.reply(
-      '💾 Сохраняю отчет и отправляю данные...',
-    );
+    const savingMsg = await ctx.reply('💾 Сохраняю отчет и отправляю данные...');
 
     try {
       const telegramId = ctx.from?.id;
@@ -445,12 +397,8 @@ export class ReportWizard {
 
       const chatId = ctx.chat?.id;
       if (chatId) {
-        setTimeout(async () => {
-          try {
-            await ctx.telegram.deleteMessage(chatId, successMsg.message_id);
-          } catch {
-            void 0;
-          }
+        setTimeout(() => {
+          ctx.telegram.deleteMessage(chatId, successMsg.message_id).catch(() => {});
         }, 10000); // Delete after 10 seconds
       }
 
@@ -458,10 +406,7 @@ export class ReportWizard {
     } catch (error) {
       console.error('Error finalizing report:', error);
 
-      await ctx.reply(
-        '❌ Произошла ошибка при сохранении отчета. Попробуйте еще раз.',
-        this.getMainMenuKeyboard(ctx),
-      );
+      await ctx.reply('❌ Произошла ошибка при сохранении отчета. Попробуйте еще раз.', this.getMainMenuKeyboard(ctx));
       await ctx.scene.leave();
     } finally {
       // Clean up wizard chat messages

@@ -1,13 +1,15 @@
 import { Update, Start, Command, On, Ctx, Hears } from 'nestjs-telegraf';
-import { Context, Markup, Scenes } from 'telegraf';
+import { Context, Scenes } from 'telegraf';
 import { PrismaService } from '../prisma/prisma.service';
 import { ExcelService } from '../excel/excel.service';
+import { KeyboardService, KEYBOARD_BUTTONS } from './keyboard.service';
 
 @Update()
 export class BotUpdate {
   constructor(
     private readonly prisma: PrismaService,
     private readonly excel: ExcelService,
+    private readonly keyboardService: KeyboardService,
   ) {}
 
   @Start()
@@ -16,31 +18,18 @@ export class BotUpdate {
     const isAdmin = adminId && ctx.from?.id.toString() === adminId.toString();
 
     const welcomeText =
-      '👋 Привет! Я бот для сбора отчетов магазинов.\n\n' +
-      'Нажмите кнопку ниже, чтобы начать заполнение отчета:';
+      '👋 Привет! Я бот для сбора отчетов магазинов.\n\n' + 'Нажмите кнопку ниже, чтобы начать заполнение отчета:';
 
-    if (isAdmin) {
-      await ctx.reply(
-        welcomeText,
-        Markup.keyboard([
-          ['📝 Отправить новый отчет', '📊 Экспорт в Excel'],
-        ]).resize(),
-      );
-    } else {
-      await ctx.reply(
-        welcomeText,
-        Markup.keyboard([['📝 Отправить новый отчет']]).resize(),
-      );
-    }
+    await ctx.reply(welcomeText, this.keyboardService.getMainMenuKeyboard(!!isAdmin));
   }
 
-  @Hears('📝 Отправить новый отчет')
+  @Hears(KEYBOARD_BUTTONS.SEND_REPORT)
   async onStartReport(@Ctx() ctx: Scenes.SceneContext) {
     await ctx.scene.enter('report-wizard');
   }
 
   @Command('export')
-  @Hears('📊 Экспорт в Excel')
+  @Hears(KEYBOARD_BUTTONS.EXPORT_EXCEL)
   async onExport(@Ctx() ctx: Context) {
     const adminId = process.env.TG_ADMIN_ID;
 
@@ -92,16 +81,13 @@ export class BotUpdate {
       const text = ctx.message.text;
 
       // Игнорируем сообщения, которые являются командами или кнопками
-      if (
-        text.startsWith('/') ||
-        text === '📊 Экспорт в Excel' ||
-        text === '📝 Отправить новый отчет'
-      ) {
+      if (text.startsWith('/') || this.keyboardService.getAllButtons().includes(text)) {
+        console.log('====>', text);
         return;
       }
 
       await ctx.reply(
-        '⚠️ Чтобы отправить отчет, пожалуйста, нажмите кнопку «📝 Отправить новый отчет» ниже.',
+        `⚠️ Чтобы отправить отчет, пожалуйста, нажмите кнопку «${this.keyboardService.BUTTONS.SEND_REPORT}» ниже.`,
       );
     }
   }

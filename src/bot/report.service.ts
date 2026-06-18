@@ -60,10 +60,7 @@ export class ReportService {
     return { todayStart, todayEnd };
   }
 
-  async saveAndForwardReport(
-    ctx: Scenes.WizardContext,
-    data: ReportData,
-  ): Promise<boolean> {
+  async saveAndForwardReport(ctx: Scenes.WizardContext, data: ReportData): Promise<boolean> {
     const {
       shopName,
       cashbox,
@@ -153,9 +150,7 @@ export class ReportService {
     // 4. Send report summary to the group
     const groupId = process.env.TG_GROUP_ID;
     if (groupId) {
-      const title = isUpdate
-        ? `🔄 **Обновленный отчет о расходах**`
-        : `📊 **Новый отчет о расходах**`;
+      const title = isUpdate ? `🔄 **Обновленный отчет о расходах**` : `📊 **Новый отчет о расходах**`;
 
       const forwardText =
         `${title}\n\n` +
