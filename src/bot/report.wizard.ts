@@ -2,7 +2,7 @@ import { Wizard, WizardStep, Ctx } from 'nestjs-telegraf';
 import { ReportService } from './report.service';
 import { KeyboardService } from './keyboard.service';
 import { MessageService } from './message.service';
-import type { AppContext } from './types/context.interface';
+import type { AppContext, MediaMessageContext } from './types/context.interface';
 
 // Custom interface for wizard state to store report progress
 interface ReportState {
@@ -267,12 +267,7 @@ export class ReportWizard {
   @WizardStep(8)
   async step8(
     @Ctx()
-    ctx: AppContext & {
-      message: {
-        text?: string;
-        photo?: Array<{ file_id: string }>;
-      };
-    },
+    ctx: MediaMessageContext,
   ) {
     if (await this.prepareStep(ctx)) return;
 

@@ -37,7 +37,10 @@ export class MessageService {
       state.messagesToDelete = [];
     }
 
-    state.messagesToDelete.push(messageId);
+    if (!state.messagesToDelete.includes(messageId)) {
+      state.messagesToDelete.push(messageId);
+    }
+
     return messageId;
   }
 }

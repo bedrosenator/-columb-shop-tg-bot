@@ -1,6 +1,6 @@
 import { Wizard, WizardStep, Ctx } from 'nestjs-telegraf';
 import { KeyboardService } from './keyboard.service';
-import type { AppContext } from './types/context.interface';
+import type { AppContext, MediaMessageContext } from './types/context.interface';
 import { MessageService } from './message.service';
 
 @Wizard('order-wizard')
@@ -18,7 +18,7 @@ export class OrderWizard {
   }
 
   @WizardStep(2)
-  async step2(@Ctx() ctx: AppContext & { message?: { photo?: Array<{ file_id: string }>; caption?: string } }) {
+  async step2(@Ctx() ctx: MediaMessageContext) {
     const photos = ctx.message?.photo;
     const photo = photos && photos.length > 0 ? photos[photos.length - 1] : undefined;
     const isCanceled = await this.keyboardService.checkCancelClick(ctx);
@@ -48,14 +48,13 @@ export class OrderWizard {
       await ctx.reply(`✅ Фото заказа отправлено!`, this.keyboardService.getMainMenuKeyboard(ctx.isAdmin));
     } catch (error) {
       console.error('Ошибка отправки фото заказа:', error);
+      await this.messageService.deleteMessages(ctx);
       await ctx.scene.leave();
       const errorMsg = await ctx.reply(
         '❌ Произошла ошибка при отправке фото заказа. Попробуйте снова.',
         this.keyboardService.getMainMenuKeyboard(ctx.isAdmin),
       );
       this.messageService.addMessageToDelete(ctx, errorMsg.message_id);
-    } finally {
-      await this.messageService.deleteMessages(ctx);
     }
   }
 }
