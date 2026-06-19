@@ -12,6 +12,7 @@ export interface ReportData {
   expenses: number;
   salary: number;
   photoFileId: string;
+  photoCaption?: string;
   telegramId: number;
   username: string;
   firstName: string;
@@ -112,6 +113,7 @@ export class ReportService {
       expenses,
       salary,
       photoFileId,
+      photoCaption,
       telegramId,
       username,
       firstName,
@@ -196,7 +198,7 @@ export class ReportService {
     if (ctx.groupId) {
       const title = isUpdate ? `🔄 **Обновленный отчет о расходах**` : `📊 **Новый отчет о расходах**`;
 
-      const forwardText =
+      let forwardText =
         `${title}\n\n` +
         `🏪 **Магазин**: \`${shopName}\`\n` +
         `👤 **Продавец**: ${firstName} ${lastName} (@${username})\n\n` +
@@ -204,8 +206,13 @@ export class ReportService {
         `💳 **Терминал (безнал)**: ${terminalTurnover.toLocaleString('ru-RU')} грн.\n` +
         `🌅 **Утренний баланс**: ${morningCash.toLocaleString('ru-RU')} грн.\n` +
         `📉 **Расходы**: ${expenses.toLocaleString('ru-RU')} грн.\n` +
-        `💰 **Зарплата**: ${salary.toLocaleString('ru-RU')} грн.\n\n` +
-        `📅 **Дата**: ${new Date().toLocaleDateString('ru-RU')}`;
+        `💰 **Зарплата**: ${salary.toLocaleString('ru-RU')} грн.\n\n`;
+
+      if (photoCaption) {
+        forwardText += `📝 **Комментарий к фото**: ${photoCaption}\n\n`;
+      }
+
+      forwardText += `📅 **Дата**: ${new Date().toLocaleDateString('ru-RU')}`;
 
       try {
         if (photoFileId) {

@@ -30,6 +30,11 @@ export class BotUpdate {
     await ctx.scene.enter('order-wizard');
   }
 
+  @Hears(KEYBOARD_BUTTONS.BILLS)
+  async onBills(@Ctx() ctx: AppContext) {
+    await ctx.scene.enter('bills-wizard');
+  }
+
   @Command('export')
   @Hears(KEYBOARD_BUTTONS.EXPORT_EXCEL)
   async onExport(@Ctx() ctx: AppContext) {

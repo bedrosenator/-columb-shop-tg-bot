@@ -317,6 +317,7 @@ export class ReportWizard {
         expenses,
         salary,
         photoFileId,
+        photoCaption: ctx.message?.caption,
         telegramId,
         username,
         firstName,

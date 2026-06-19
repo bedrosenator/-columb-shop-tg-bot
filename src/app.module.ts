@@ -9,6 +9,7 @@ import { ReportWizard } from './bot/report.wizard';
 import { ReportService } from './bot/report.service';
 import { KeyboardService } from './bot/keyboard.service';
 import { OrderWizard } from './bot/order.wizard';
+import { BillsWizard } from './bot/bills.wizard';
 import { botConfigMiddleware } from './bot/app.middleware';
 
 import { session } from 'telegraf';
@@ -25,6 +26,15 @@ import { MessageService } from './bot/message.service';
     }),
   ],
   controllers: [AppController],
-  providers: [AppService, BotUpdate, ReportWizard, ReportService, KeyboardService, OrderWizard, MessageService],
+  providers: [
+    AppService,
+    BotUpdate,
+    ReportWizard,
+    ReportService,
+    KeyboardService,
+    OrderWizard,
+    BillsWizard,
+    MessageService,
+  ],
 })
 export class AppModule {}

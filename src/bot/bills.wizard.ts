@@ -4,15 +4,15 @@ import type { AppContext, MediaMessageContext } from './types/context.interface'
 import { MessageService } from './message.service';
 import { BaseMediaUploadWizard } from './base-media-upload.wizard';
 
-@Wizard('order-wizard')
-export class OrderWizard extends BaseMediaUploadWizard {
+@Wizard('bills-wizard')
+export class BillsWizard extends BaseMediaUploadWizard {
   constructor(keyboardService: KeyboardService, messageService: MessageService) {
     super(keyboardService, messageService, {
-      promptText: 'Выберите фото заказа для отправки:',
-      captionPrefix: 'Фото заказа: ',
-      successMessage: '✅ Фото заказа отправлено!',
-      errorMessage: '❌ Произошла ошибка при отправке фото заказа. Попробуйте снова.',
-      errorLogLabel: 'фото заказа',
+      promptText: 'Выберите фото накладной для отправки:',
+      captionPrefix: 'Фото накладной: ',
+      successMessage: '✅ Фото накладной отправлено!',
+      errorMessage: '❌ Произошла ошибка при отправке фото накладной. Попробуйте снова.',
+      errorLogLabel: 'фото накладной',
     });
   }
 
