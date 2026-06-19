@@ -1,8 +1,8 @@
 import { Update, Start, Command, On, Ctx, Hears } from 'nestjs-telegraf';
-import { Context, Scenes } from 'telegraf';
 import { PrismaService } from '../prisma/prisma.service';
 import { ExcelService } from '../excel/excel.service';
 import { KeyboardService, KEYBOARD_BUTTONS } from './keyboard.service';
+import type { AppContext } from './types/context.interface';
 
 @Update()
 export class BotUpdate {
@@ -13,28 +13,28 @@ export class BotUpdate {
   ) {}
 
   @Start()
-  async onStart(@Ctx() ctx: Context) {
-    const adminId = process.env.TG_ADMIN_ID;
-    const isAdmin = adminId && ctx.from?.id.toString() === adminId.toString();
-
+  async onStart(@Ctx() ctx: AppContext) {
     const welcomeText =
-      '👋 Привет! Я бот для сбора отчетов магазинов.\n\n' + 'Нажмите кнопку ниже, чтобы начать заполнение отчета:';
+      '👋 Привет! Я бот для сбора отчетов магазинов.\n\n' + 'Нажмите кнопку ниже, для отправки отчётов:';
 
-    await ctx.reply(welcomeText, this.keyboardService.getMainMenuKeyboard(!!isAdmin));
+    await ctx.reply(welcomeText, this.keyboardService.getMainMenuKeyboard(ctx.isAdmin));
   }
 
   @Hears(KEYBOARD_BUTTONS.SEND_REPORT)
-  async onStartReport(@Ctx() ctx: Scenes.SceneContext) {
+  async onStartReport(@Ctx() ctx: AppContext) {
     await ctx.scene.enter('report-wizard');
+  }
+
+  @Hears(KEYBOARD_BUTTONS.ORDER)
+  async onOrder(@Ctx() ctx: AppContext) {
+    await ctx.scene.enter('order-wizard');
   }
 
   @Command('export')
   @Hears(KEYBOARD_BUTTONS.EXPORT_EXCEL)
-  async onExport(@Ctx() ctx: Context) {
-    const adminId = process.env.TG_ADMIN_ID;
-
+  async onExport(@Ctx() ctx: AppContext) {
     // Защита команды: проверяем Telegram ID отправителя
-    if (!adminId || ctx.from?.id.toString() !== adminId.toString()) {
+    if (!ctx.isAdmin) {
       await ctx.reply('🔒 У вас нет прав для выполнения этой команды.');
       return;
     }
@@ -76,13 +76,12 @@ export class BotUpdate {
   }
 
   @On('text')
-  async onMessage(@Ctx() ctx: Context) {
+  async onMessage(@Ctx() ctx: AppContext) {
     if (ctx.message && 'text' in ctx.message) {
       const text = ctx.message.text;
 
       // Игнорируем сообщения, которые являются командами или кнопками
       if (text.startsWith('/') || this.keyboardService.getAllButtons().includes(text)) {
-        console.log('====>', text);
         return;
       }
 

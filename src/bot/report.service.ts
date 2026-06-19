@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Scenes } from 'telegraf';
+import { Context } from 'telegraf';
+import { KeyboardService } from './keyboard.service';
+import { AppContext } from './types/context.interface';
 
 export interface ReportData {
   shopName: string;
@@ -18,7 +20,38 @@ export interface ReportData {
 
 @Injectable()
 export class ReportService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly keyboardService: KeyboardService,
+  ) {}
+
+  async attachPhoto(
+    ctx: Context & {
+      message?: {
+        text?: string;
+        photo?: Array<{ file_id: string }>;
+      };
+    },
+    onMessageSent?: (messageId: number) => void,
+  ): Promise<string | undefined> {
+    const message = ctx.message;
+
+    if (message && message.photo && message.photo.length > 0) {
+      // Get the largest photo size
+      const photo = message.photo[message.photo.length - 1];
+      return photo.file_id;
+    }
+
+    const msg = await ctx.reply(
+      '⚠️ Пожалуйста, отправьте фотографию отчета:',
+      this.keyboardService.getCancelKeyboard(),
+    );
+
+    if (onMessageSent) {
+      onMessageSent(msg.message_id);
+    }
+    return;
+  }
 
   // Fetch all shops sorted by name
   async getShops() {
@@ -60,7 +93,7 @@ export class ReportService {
     return { todayStart, todayEnd };
   }
 
-  async saveAndForwardReport(ctx: Scenes.WizardContext, data: ReportData): Promise<boolean> {
+  async saveAndForwardReport(ctx: AppContext, data: ReportData): Promise<boolean> {
     const {
       shopName,
       cashbox,
@@ -148,8 +181,8 @@ export class ReportService {
     });
 
     // 4. Send report summary to the group
-    const groupId = process.env.TG_GROUP_ID;
-    if (groupId) {
+
+    if (ctx.groupId) {
       const title = isUpdate ? `🔄 **Обновленный отчет о расходах**` : `📊 **Новый отчет о расходах**`;
 
       const forwardText =
@@ -164,12 +197,12 @@ export class ReportService {
         `📅 **Дата**: ${new Date().toLocaleDateString('ru-RU')}`;
 
       if (photoFileId) {
-        await ctx.telegram.sendPhoto(groupId, photoFileId, {
+        await ctx.telegram.sendPhoto(ctx.groupId, photoFileId, {
           caption: forwardText,
           parse_mode: 'Markdown',
         });
       } else {
-        await ctx.telegram.sendMessage(groupId, forwardText, {
+        await ctx.telegram.sendMessage(ctx.groupId, forwardText, {
           parse_mode: 'Markdown',
         });
       }

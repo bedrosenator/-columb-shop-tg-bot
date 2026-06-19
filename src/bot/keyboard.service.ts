@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Markup } from 'telegraf';
+import { MessageService } from './message.service';
+import type { AppContext } from './types/context.interface';
 
 export const KEYBOARD_BUTTONS = {
   SEND_REPORT: '📝 Отправить отчет',
@@ -11,6 +13,8 @@ export const KEYBOARD_BUTTONS = {
 
 @Injectable()
 export class KeyboardService {
+  constructor(private readonly messageService: MessageService) {}
+
   // Constants for button labels
   public readonly BUTTONS = KEYBOARD_BUTTONS;
 
@@ -58,5 +62,18 @@ export class KeyboardService {
     keyboardRows.push([this.BUTTONS.CANCEL]);
 
     return Markup.keyboard(keyboardRows).resize();
+  }
+  // Helper method to check if the user clicked cancel
+  public async checkCancelClick(ctx: AppContext): Promise<boolean> {
+    if (ctx.message && 'text' in ctx.message && ctx.message.text === this.BUTTONS.CANCEL) {
+      this.messageService.addMessageToDelete(ctx, ctx.message.message_id);
+      await ctx.reply('❌ Заполнение отчета отменено.', this.getMainMenuKeyboard(ctx.isAdmin));
+      await this.messageService.deleteMessages(ctx);
+      await ctx.scene.leave();
+
+      return true;
+    }
+
+    return false;
   }
 }

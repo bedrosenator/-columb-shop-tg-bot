@@ -8,8 +8,11 @@ import { BotUpdate } from './bot/bot.update';
 import { ReportWizard } from './bot/report.wizard';
 import { ReportService } from './bot/report.service';
 import { KeyboardService } from './bot/keyboard.service';
+import { OrderWizard } from './bot/order.wizard';
+import { botConfigMiddleware } from './bot/app.middleware';
 
 import { session } from 'telegraf';
+import { MessageService } from './bot/message.service';
 
 @Module({
   imports: [
@@ -18,10 +21,10 @@ import { session } from 'telegraf';
 
     TelegrafModule.forRoot({
       token: process.env.TG_BOT_TOKEN!,
-      middlewares: [session()],
+      middlewares: [session(), botConfigMiddleware],
     }),
   ],
   controllers: [AppController],
-  providers: [AppService, BotUpdate, ReportWizard, ReportService, KeyboardService],
+  providers: [AppService, BotUpdate, ReportWizard, ReportService, KeyboardService, OrderWizard, MessageService],
 })
 export class AppModule {}
