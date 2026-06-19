@@ -1,14 +1,19 @@
 import { Wizard, WizardStep, Ctx } from 'nestjs-telegraf';
 import { KeyboardService } from './keyboard.service';
 import type { AppContext } from './types/context.interface';
+import { MessageService } from './message.service';
 
 @Wizard('order-wizard')
 export class OrderWizard {
-  constructor(private keyboardService: KeyboardService) {}
+  constructor(
+    private keyboardService: KeyboardService,
+    private messageService: MessageService,
+  ) {}
 
   @WizardStep(1)
   async step1(@Ctx() ctx: AppContext) {
-    await ctx.reply('Выберите фото для отправки:', this.keyboardService.getCancelKeyboard());
+    const message = await ctx.reply('Выберите фото для отправки:', this.keyboardService.getCancelKeyboard());
+    this.messageService.addMessageToDelete(ctx, message.message_id);
     ctx.wizard.next();
   }
 
@@ -23,7 +28,8 @@ export class OrderWizard {
     }
 
     if (!photo?.file_id) {
-      await ctx.reply('⚠️ Пожалуйста, выберите фото.');
+      const msg = await ctx.reply('⚠️ Пожалуйста, выберите фото.');
+      this.messageService.addMessageToDelete(ctx, msg.message_id);
       return;
     }
 
@@ -43,10 +49,13 @@ export class OrderWizard {
     } catch (error) {
       console.error('Ошибка отправки фото заказа:', error);
       await ctx.scene.leave();
-      await ctx.reply(
+      const errorMsg = await ctx.reply(
         '❌ Произошла ошибка при отправке фото заказа. Попробуйте снова.',
         this.keyboardService.getMainMenuKeyboard(ctx.isAdmin),
       );
+      this.messageService.addMessageToDelete(ctx, errorMsg.message_id);
+    } finally {
+      await this.messageService.deleteMessages(ctx);
     }
   }
 }
