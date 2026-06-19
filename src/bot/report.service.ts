@@ -18,6 +18,11 @@ export interface ReportData {
   lastName: string;
 }
 
+export interface ReportStatus {
+  isUpdate: boolean;
+  isTgMessageSent: boolean;
+}
+
 @Injectable()
 export class ReportService {
   constructor(
@@ -93,7 +98,12 @@ export class ReportService {
     return { todayStart, todayEnd };
   }
 
-  async saveAndForwardReport(ctx: AppContext, data: ReportData): Promise<boolean> {
+  async saveAndForwardReport(ctx: AppContext, data: ReportData): Promise<ReportStatus> {
+    const reportStatus: ReportStatus = {
+      isUpdate: false,
+      isTgMessageSent: false,
+    };
+
     const {
       shopName,
       cashbox,
@@ -176,9 +186,10 @@ export class ReportService {
           },
         });
       }
-
       return { isUpdate: isUpdateRecord };
     });
+
+    reportStatus.isUpdate = isUpdate;
 
     // 4. Send report summary to the group
 
@@ -196,18 +207,24 @@ export class ReportService {
         `💰 **Зарплата**: ${salary.toLocaleString('ru-RU')} грн.\n\n` +
         `📅 **Дата**: ${new Date().toLocaleDateString('ru-RU')}`;
 
-      if (photoFileId) {
-        await ctx.telegram.sendPhoto(ctx.groupId, photoFileId, {
-          caption: forwardText,
-          parse_mode: 'Markdown',
-        });
-      } else {
-        await ctx.telegram.sendMessage(ctx.groupId, forwardText, {
-          parse_mode: 'Markdown',
-        });
+      try {
+        if (photoFileId) {
+          await ctx.telegram.sendPhoto(ctx.groupId, photoFileId, {
+            caption: forwardText,
+            parse_mode: 'Markdown',
+          });
+        } else {
+          await ctx.telegram.sendMessage(ctx.groupId, forwardText, {
+            parse_mode: 'Markdown',
+          });
+        }
+        reportStatus.isTgMessageSent = true;
+      } catch (error) {
+        console.error('Error sending report:', error);
+        reportStatus.isTgMessageSent = false;
       }
     }
 
-    return isUpdate;
+    return reportStatus;
   }
 }

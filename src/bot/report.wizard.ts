@@ -309,7 +309,7 @@ export class ReportWizard {
 
       if (!telegramId) return;
 
-      const isUpdate = await this.reportService.saveAndForwardReport(ctx, {
+      const { isUpdate, isTgMessageSent } = await this.reportService.saveAndForwardReport(ctx, {
         shopName,
         cashbox,
         terminalTurnover,
@@ -323,12 +323,16 @@ export class ReportWizard {
         lastName,
       });
 
-      await ctx.reply(
-        isUpdate
-          ? '✅ Отчет успешно обновлен, сохранен в базу и переслан руководству!'
-          : '✅ Отчет успешно принят, сохранен в базу и переслан руководству!',
-        this.getMainMenuKeyboard(ctx.isAdmin),
-      );
+      let replyText = isUpdate
+        ? '✅ Отчет успешно обновлен и сохранен в базу.'
+        : '✅ Отчет успешно принят и сохранен в базу.';
+      if (isTgMessageSent) {
+        replyText += ' Данные пересланы руководству!';
+      } else {
+        replyText += '\n⚠️ Предупреждение: Не удалось переслать копию руководству в группу (ошибка Telegram).';
+      }
+
+      await ctx.reply(replyText, this.getMainMenuKeyboard(ctx.isAdmin));
 
       await ctx.scene.leave();
     } catch (error) {
@@ -346,8 +350,8 @@ export class ReportWizard {
       // Delete the "💾 Сохраняю отчет..." message
       try {
         await ctx.telegram.deleteMessage(ctx.chat!.id, savingMsg.message_id);
-      } catch {
-        void 0;
+      } catch (e) {
+        console.error(e);
       }
     }
   }
