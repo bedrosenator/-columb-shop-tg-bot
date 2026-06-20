@@ -13,7 +13,7 @@ export class OrderWizard extends BaseMediaUploadWizard {
       successMessage: '✅ Фото заказа отправлено!',
       errorMessage: '❌ Произошла ошибка при отправке фото заказа. Попробуйте снова.',
       errorLogLabel: 'фото заказа',
-      groupId: process.env.ORDER_GROUP_ID!,
+      groupId: process.env.TG_GROUP_ID_ORDERS!,
     });
   }
 
