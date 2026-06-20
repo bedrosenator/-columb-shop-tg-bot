@@ -4,7 +4,14 @@ import { env } from 'process';
 
 const envPath = join(process.cwd(), '.env');
 
-const envVars = ['TG_BOT_TOKEN', 'TG_GROUP_ID', 'TG_ADMIN_ID', 'DATABASE_URL'];
+const envVars = [
+  'TG_BOT_TOKEN',
+  'TG_GROUP_ID_REPORTS',
+  'TG_GROUP_ID_ORDERS',
+  'TG_GROUP_ID_BILLS',
+  'TG_ADMIN_ID',
+  'DATABASE_URL',
+];
 
 if (existsSync(envPath)) {
   process.loadEnvFile(envPath);

@@ -195,7 +195,7 @@ export class ReportService {
 
     // 4. Send report summary to the group
 
-    if (ctx.groupId) {
+    if (ctx.reportsGroupId) {
       const title = isUpdate ? `🔄 **Обновленный отчет о расходах**` : `📊 **Новый отчет о расходах**`;
 
       let forwardText =
@@ -216,12 +216,12 @@ export class ReportService {
 
       try {
         if (photoFileId) {
-          await ctx.telegram.sendPhoto(ctx.groupId, photoFileId, {
+          await ctx.telegram.sendPhoto(ctx.reportsGroupId, photoFileId, {
             caption: forwardText,
             parse_mode: 'Markdown',
           });
         } else {
-          await ctx.telegram.sendMessage(ctx.groupId, forwardText, {
+          await ctx.telegram.sendMessage(ctx.reportsGroupId, forwardText, {
             parse_mode: 'Markdown',
           });
         }

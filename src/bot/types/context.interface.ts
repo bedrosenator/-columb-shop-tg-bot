@@ -3,7 +3,9 @@ import { Scenes } from 'telegraf';
 // Расширяем стандартный контекст Telegraf нашими свойствами
 export interface AppContext extends Scenes.WizardContext {
   isAdmin: boolean;
-  groupId: string;
+  ordersGroupId: string;
+  billsGroupId: string;
+  reportsGroupId: string;
 }
 
 // Специализированный контекст для работы с медиа-сообщениями (фото/видео + подпись)

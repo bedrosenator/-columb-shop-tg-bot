@@ -8,6 +8,7 @@ export interface MediaUploadConfig {
   successMessage: string;
   errorMessage: string;
   errorLogLabel: string;
+  groupId: string;
 }
 
 export abstract class BaseMediaUploadWizard {
@@ -39,7 +40,7 @@ export abstract class BaseMediaUploadWizard {
     }
 
     try {
-      await ctx.telegram.sendPhoto(ctx.groupId, photo.file_id, {
+      await ctx.telegram.sendPhoto(this.config.groupId, photo.file_id, {
         caption: `${this.config.captionPrefix}${ctx.message?.caption ? `\n ${ctx.message.caption}` : ''}`,
         parse_mode: 'Markdown',
       });

@@ -13,6 +13,7 @@ export class BillsWizard extends BaseMediaUploadWizard {
       successMessage: '✅ Фото накладной отправлено!',
       errorMessage: '❌ Произошла ошибка при отправке фото накладной. Попробуйте снова.',
       errorLogLabel: 'фото накладной',
+      groupId: process.env.BILL_GROUP_ID!,
     });
   }
 
