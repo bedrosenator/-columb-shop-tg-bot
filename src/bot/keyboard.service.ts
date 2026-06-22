@@ -6,6 +6,7 @@ export const KEYBOARD_BUTTONS = {
   SEND_REPORT: '📝 Отправить отчет',
   EXPORT_EXCEL: '📊 Экспорт в Excel',
   ORDER: '📦 Заказ',
+  SHOP_WINDOW: '🖼️ Витрина',
   BILLS: '🧾 Накладные',
   CANCEL: '❌ Отмена',
 };
@@ -29,12 +30,13 @@ export class KeyboardService {
    */
   public getMainMenuKeyboard(isAdmin: boolean): Markup.Markup<any> {
     const rows: string[][] = [
-      [this.BUTTONS.SEND_REPORT, this.BUTTONS.EXPORT_EXCEL],
+      [this.BUTTONS.SEND_REPORT, this.BUTTONS.SHOP_WINDOW],
       [this.BUTTONS.ORDER, this.BUTTONS.BILLS],
+      [this.BUTTONS.EXPORT_EXCEL],
     ];
 
     if (!isAdmin) {
-      rows[0].pop();
+      rows[rows.length - 1].pop();
     }
 
     return Markup.keyboard(rows).resize();

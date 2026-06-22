@@ -9,6 +9,7 @@ const envVars = [
   'TG_GROUP_ID_REPORTS',
   'TG_GROUP_ID_ORDERS',
   'TG_GROUP_ID_BILLS',
+  'TG_GROUP_ID_SHOP_WINDOW',
   'TG_ADMIN_ID',
   'DATABASE_URL',
 ];

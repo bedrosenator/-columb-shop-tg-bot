@@ -35,6 +35,11 @@ export class BotUpdate {
     await ctx.scene.enter('bills-wizard');
   }
 
+  @Hears(KEYBOARD_BUTTONS.SHOP_WINDOW)
+  async onShopWindow(@Ctx() ctx: AppContext) {
+    await ctx.scene.enter('shop-window-wizard');
+  }
+
   @Command('export')
   @Hears(KEYBOARD_BUTTONS.EXPORT_EXCEL)
   async onExport(@Ctx() ctx: AppContext) {

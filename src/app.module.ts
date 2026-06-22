@@ -10,6 +10,7 @@ import { ReportService } from './bot/report.service';
 import { KeyboardService } from './bot/keyboard.service';
 import { OrderWizard } from './bot/order.wizard';
 import { BillsWizard } from './bot/bills.wizard';
+import { ShopWindowWizard } from './bot/shop-window.wizard';
 import { botConfigMiddleware } from './bot/app.middleware';
 
 import { session } from 'telegraf';
@@ -34,6 +35,7 @@ import { MessageService } from './bot/message.service';
     KeyboardService,
     OrderWizard,
     BillsWizard,
+    ShopWindowWizard,
     MessageService,
   ],
 })
