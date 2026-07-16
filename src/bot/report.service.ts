@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { Context } from 'telegraf';
 import { KeyboardService } from './keyboard.service';
 import { AppContext } from './types/context.interface';
+import { escapeHtml } from './utils';
 
 export interface ReportData {
   shopName: string;
@@ -196,33 +197,33 @@ export class ReportService {
     // 4. Send report summary to the group
 
     if (ctx.reportsGroupId) {
-      const title = isUpdate ? `🔄 **Обновленный отчет о расходах**` : `📊 **Новый отчет о расходах**`;
+      const title = isUpdate ? `🔄 <b>Обновленный отчет о расходах</b>` : `📊 <b>Новый отчет о расходах</b>`;
 
       let forwardText =
         `${title}\n\n` +
-        `🏪 **Магазин**: \`${shopName}\`\n` +
-        `👤 **Продавец**: ${firstName} ${lastName} (@${username})\n\n` +
-        `💵 **Касса (наличные)**: ${cashbox.toLocaleString('ru-RU')} грн.\n` +
-        `💳 **Терминал (безнал)**: ${terminalTurnover.toLocaleString('ru-RU')} грн.\n` +
-        `🌅 **Утренний баланс**: ${morningCash.toLocaleString('ru-RU')} грн.\n` +
-        `📉 **Расходы**: ${expenses.toLocaleString('ru-RU')} грн.\n` +
-        `💰 **Зарплата**: ${salary.toLocaleString('ru-RU')} грн.\n\n`;
+        `🏪 <b>Магазин</b>: <code>${escapeHtml(shopName)}</code>\n` +
+        `👤 <b>Продавец</b>: ${escapeHtml(firstName)} ${escapeHtml(lastName)} (@${escapeHtml(username)})\n\n` +
+        `💵 <b>Касса (наличные)</b>: ${cashbox.toLocaleString('ru-RU')} грн.\n` +
+        `💳 <b>Терминал (безнал)</b>: ${terminalTurnover.toLocaleString('ru-RU')} грн.\n` +
+        `🌅 <b>Утренний баланс</b>: ${morningCash.toLocaleString('ru-RU')} грн.\n` +
+        `📉 <b>Расходы</b>: ${expenses.toLocaleString('ru-RU')} грн.\n` +
+        `💰 <b>Зарплата</b>: ${salary.toLocaleString('ru-RU')} грн.\n\n`;
 
       if (photoCaption) {
-        forwardText += `📝 **Комментарий к фото**: ${photoCaption}\n\n`;
+        forwardText += `📝 <b>Комментарий к фото</b>: ${escapeHtml(photoCaption)}\n\n`;
       }
 
-      forwardText += `📅 **Дата**: ${new Date().toLocaleDateString('ru-RU')}`;
+      forwardText += `📅 <b>Дата</b>: ${new Date().toLocaleDateString('ru-RU')}`;
 
       try {
         if (photoFileId) {
           await ctx.telegram.sendPhoto(ctx.reportsGroupId, photoFileId, {
             caption: forwardText,
-            parse_mode: 'Markdown',
+            parse_mode: 'HTML',
           });
         } else {
           await ctx.telegram.sendMessage(ctx.reportsGroupId, forwardText, {
-            parse_mode: 'Markdown',
+            parse_mode: 'HTML',
           });
         }
         reportStatus.isTgMessageSent = true;

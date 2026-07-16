@@ -1,6 +1,7 @@
 import { KeyboardService } from './keyboard.service';
 import type { AppContext, MediaMessageContext } from './types/context.interface';
 import { MessageService } from './message.service';
+import { escapeHtml } from './utils';
 
 export interface MediaUploadConfig {
   promptText: string;
@@ -40,9 +41,10 @@ export abstract class BaseMediaUploadWizard {
     }
 
     try {
+      const escapedCaption = ctx.message?.caption ? `\n ${escapeHtml(ctx.message.caption)}` : '';
       await ctx.telegram.sendPhoto(this.config.groupId, photo.file_id, {
-        caption: `${this.config.captionPrefix}${ctx.message?.caption ? `\n ${ctx.message.caption}` : ''}`,
-        parse_mode: 'Markdown',
+        caption: `${escapeHtml(this.config.captionPrefix)}${escapedCaption}`,
+        parse_mode: 'HTML',
       });
 
       // clear sent photos
