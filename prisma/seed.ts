@@ -13,18 +13,22 @@ async function main() {
   // Target list of active shops requested:
   const targetShops = ['Франц', 'Николь', 'Соборная', 'Поворотка'];
 
-  // 1. Map legacy long names to standard names
+  // 1. Map legacy and alternative names to target names
   const nameMappings: Record<string, string> = {
     Французский: 'Франц',
     Никольский: 'Николь',
+    Изюм: 'Соборная',
+    'Ізюм Соборна': 'Соборная',
+    'Изюм Соборная': 'Соборная',
+    Чудо: 'Соборная',
   };
 
   for (const [oldName, newName] of Object.entries(nameMappings)) {
-    const shopToRename = await prisma.shop.findFirst({
+    const shopsToRename = await prisma.shop.findMany({
       where: { name: oldName },
     });
 
-    if (shopToRename) {
+    for (const shopToRename of shopsToRename) {
       await prisma.shop.update({
         where: { id: shopToRename.id },
         data: { name: newName },
