@@ -10,12 +10,13 @@ async function main() {
 
   console.log('🌱 Starting database seeding...');
 
-  // 1. Rename existing shops (e.g. "Чудо" -> "Колумб" and legacy long names)
+  // Target list of active shops requested:
+  const targetShops = ['Франц', 'Николь', 'Соборная', 'Поворотка'];
+
+  // 1. Map legacy long names to standard names
   const nameMappings: Record<string, string> = {
-    Чудо: 'Колумб',
-    Университетская: 'Универ',
-    Никольский: 'Николь',
     Французский: 'Франц',
+    Никольский: 'Николь',
   };
 
   for (const [oldName, newName] of Object.entries(nameMappings)) {
@@ -32,27 +33,29 @@ async function main() {
     }
   }
 
-  // 2. Completely delete shop "Свобода" and its associated expenses
-  const svobodaShops = await prisma.shop.findMany({
-    where: { name: 'Свобода' },
+  // 2. Remove all shops (and their associated expenses) that are not in the target list
+  const shopsToDelete = await prisma.shop.findMany({
+    where: {
+      name: {
+        notIn: targetShops,
+      },
+    },
   });
 
-  for (const shop of svobodaShops) {
+  for (const shop of shopsToDelete) {
     const deletedExpenses = await prisma.shopExpenses.deleteMany({
       where: { shopId: shop.id },
     });
-    console.log(`🗑️ Deleted ${deletedExpenses.count} expenses for shop: ${shop.name}`);
+    console.log(`🗑️ Deleted ${deletedExpenses.count} expenses for shop: "${shop.name}"`);
 
     await prisma.shop.delete({
       where: { id: shop.id },
     });
-    console.log(`🗑️ Deleted shop: ${shop.name}`);
+    console.log(`🗑️ Deleted shop: "${shop.name}"`);
   }
 
-  // 3. Ensure target default shops exist
-  const defaultShops = ['Колумб', 'Универ', 'Изюм', 'Николь', 'Франц'];
-
-  for (const name of defaultShops) {
+  // 3. Ensure all target shops exist
+  for (const name of targetShops) {
     const existing = await prisma.shop.findFirst({
       where: { name },
     });
@@ -61,9 +64,9 @@ async function main() {
       await prisma.shop.create({
         data: { name },
       });
-      console.log(`🏪 Created shop: ${name}`);
+      console.log(`🏪 Created shop: "${name}"`);
     } else {
-      console.log(`🏪 Shop already exists: ${name}`);
+      console.log(`🏪 Shop already exists: "${name}"`);
     }
   }
 
