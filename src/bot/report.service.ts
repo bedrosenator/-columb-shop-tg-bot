@@ -227,9 +227,30 @@ export class ReportService {
           });
         }
         reportStatus.isTgMessageSent = true;
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error sending report:', error);
-        reportStatus.isTgMessageSent = false;
+        const migrateToChatId = error?.parameters?.migrate_to_chat_id;
+        if (migrateToChatId) {
+          console.log(`[Auto-Migrate] Retrying report send to supergroup ID: ${migrateToChatId}`);
+          try {
+            if (photoFileId) {
+              await ctx.telegram.sendPhoto(migrateToChatId, photoFileId, {
+                caption: forwardText,
+                parse_mode: 'HTML',
+              });
+            } else {
+              await ctx.telegram.sendMessage(migrateToChatId, forwardText, {
+                parse_mode: 'HTML',
+              });
+            }
+            reportStatus.isTgMessageSent = true;
+          } catch (retryError) {
+            console.error('Error after auto-migrate retry:', retryError);
+            reportStatus.isTgMessageSent = false;
+          }
+        } else {
+          reportStatus.isTgMessageSent = false;
+        }
       }
     }
 
